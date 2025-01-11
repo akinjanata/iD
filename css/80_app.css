@@ -3069,6 +3069,7 @@ img.tag-reference-wiki-image {
 .comment-date {
     color: #aaa;
 }
+.inspector-hover .comment-text,
 .comment-text {
     color: #333;
     margin-top: 10px;
@@ -4178,11 +4179,13 @@ li.issue-fix-item button:not(.actionable) .fix-icon {
 .help-pane .nav {
     position: relative;
     padding-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
 }
 
 .help-pane .nav a {
-    float: left;
-    width: 50%;
+    flex: 0 0 50%;
     text-align: center;
 }
 
@@ -4196,7 +4199,7 @@ li.issue-fix-item button:not(.actionable) .fix-icon {
 }
 
 .help-pane .nav a:only-child {
-    width: 100%;
+    flex: 0 0 100%;
     border-radius: 4px;
 }
 
@@ -4232,10 +4235,10 @@ li.issue-fix-item button:not(.actionable) .fix-icon {
     border: 1px solid #ccc;
 }
 
-/* scrollbars only when necessary*/
+/* no scrollbars */
 .inspector-hover div {
     overflow-x: visible;
-    overflow-y: auto;
+    overflow-y: visible;
 }
 
 /* hide and remove from layout */
@@ -4361,17 +4364,33 @@ img.tile {
 
     -webkit-user-drag: none;
 
-    opacity: 0;
-
-    transition: opacity 200ms linear;
-}
-
-img.tile-loaded {
     opacity: 1;
+    transition: opacity 250ms linear;
+
+    /* prevent brief flickering of "broken image" on tile loading errors, see https://zeldman.com/2012/03/01/replacing-the-9999px-hack-new-image-replacement/ */
+    text-indent: 100%;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
-img.tile-removing {
+/* Workaround to remove visible grid around tile borders on Chrome
+   Only works with browser zoom multiple of 25 (75%, 100%, 125%...)
+   Should be removed when https://issues.chromium.org/issues/40084005 is resolved.
+   See https://github.com/openstreetmap/iD/pull/10594 */
+@media (-webkit-device-pixel-ratio = 1) or (-webkit-device-pixel-ratio = 1.25) or (-webkit-device-pixel-ratio = 1.5) or (-webkit-device-pixel-ratio = 1.75)
+    or (-webkit-device-pixel-ratio = 2) or (-webkit-device-pixel-ratio = 2.25) or (-webkit-device-pixel-ratio = 2.5) or (-webkit-device-pixel-ratio = 2.75)
+    or (-webkit-device-pixel-ratio = 3) or (-webkit-device-pixel-ratio = 3.25) or (-webkit-device-pixel-ratio = 3.5) or (-webkit-device-pixel-ratio = 3.75)
+    or (-webkit-device-pixel-ratio = 4) or (-webkit-device-pixel-ratio = 4.25) or (-webkit-device-pixel-ratio = 4.5) or (-webkit-device-pixel-ratio = 4.75)
+    or (-webkit-device-pixel-ratio = 5) or (-webkit-device-pixel-ratio = 0.25) or (-webkit-device-pixel-ratio = 0.5) or (-webkit-device-pixel-ratio = 0.75) {
+    .layer-background img.tile {
+        mix-blend-mode: plus-lighter;
+    }
+}
+
+.layer-background img.tile-removing {
     opacity: 0;
+    z-index: 1;
+    mix-blend-mode: normal;
 }
 
 .tile-label-debug {
@@ -5769,6 +5788,7 @@ li.hide + li.version .badge .tooltip .popover-arrow {
     border: solid transparent;
     border-width: 3px 3px 3px 4px;
     border-radius: 6px;
+    cursor: auto;
 }
 ::-webkit-scrollbar-track:active {
     background-color: rgba(0,0,0,.05);
@@ -5778,8 +5798,11 @@ li.hide + li.version .badge .tooltip .popover-arrow {
         background-color: rgba(0,0,0,.05);
     }
 }
-body {
-    scrollbar-width: 10px;
+/* Firefox */
+@-moz-document url-prefix() {
+	* {
+	    scrollbar-width: thin;
+	}
 }
 
 

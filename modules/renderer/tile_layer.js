@@ -15,11 +15,30 @@ export function rendererTileLayer(context) {
     var _tileOrigin;
     var _zoom;
     var _source;
+    var _epsilon = 0;
 
+    // Workaround to remove visible grid around tile borders on Chrome with dynamic epsilon for specific browser zoom levels
+    // Should be removed when https://issues.chromium.org/issues/40084005 is resolved
+    // See https://github.com/openstreetmap/iD/pull/10594
+    if (window.chrome) {
+        updateEpsilon();
+        window.addEventListener('resize', updateEpsilon);
+    }
+    function updateEpsilon() {
+        const pageZoom = Math.round(window.devicePixelRatio * 100);
+        if (pageZoom % 25 === 0) {
+            _epsilon = 0; // uses mix-blend-mode: plus-lighter
+        } else if (pageZoom === 90) {
+            _epsilon = 0.005;
+        } else if (pageZoom === 110) {
+            _epsilon = 0.002;
+        } else {
+            _epsilon = 0.003;
+        }
+    }
 
     function tileSizeAtZoom(d, z) {
-        var EPSILON = 0.002;    // close seams
-        return ((_tileSize * Math.pow(2, z - d[2])) / _tileSize) + EPSILON;
+        return ((d.tileSize * Math.pow(2, z - d[2])) / d.tileSize) + _epsilon;
     }
 
 
@@ -57,7 +76,8 @@ export function rendererTileLayer(context) {
 
 
     function addSource(d) {
-        d.push(_source.url(d));
+        d.url = _source.url(d);
+        d.tileSize = _tileSize;
         return d;
     }
 
@@ -107,31 +127,30 @@ export function rendererTileLayer(context) {
 
             tiler().forEach(function(d) {
                 addSource(d);
-                if (d[3] === '') return;
-                if (typeof d[3] !== 'string') return; // Workaround for #2295
+                if (d.url === '') return;
+                if (typeof d.url !== 'string') return; // Workaround for #2295
                 requests.push(d);
-                if (_cache[d[3]] === false && lookUp(d)) {
+                if (_cache[d.url] === false && lookUp(d)) {
                     requests.push(addSource(lookUp(d)));
                 }
             });
 
-            requests = uniqueBy(requests, 3).filter(function(r) {
+            requests = uniqueBy(requests, 'url').filter(function(r) {
                 // don't re-request tiles which have failed in the past
-                return _cache[r[3]] !== false;
+                return _cache[r.url] !== false;
             });
         }
 
         function load(d3_event, d) {
-            _cache[d[3]] = true;
+            _cache[d.url] = true;
             d3_select(this)
                 .on('error', null)
-                .on('load', null)
-                .classed('tile-loaded', true);
+                .on('load', null);
             render(selection);
         }
 
         function error(d3_event, d) {
-            _cache[d[3]] = false;
+            _cache[d.url] = false;
             d3_select(this)
                 .on('error', null)
                 .on('load', null)
@@ -140,16 +159,18 @@ export function rendererTileLayer(context) {
         }
 
         function imageTransform(d) {
-            var ts = _tileSize * Math.pow(2, _zoom - d[2]);
+            var ts = d.tileSize * Math.pow(2, _zoom - d[2]);
             var scale = tileSizeAtZoom(d, _zoom);
             return 'translate(' +
-                ((d[0] * ts) - _tileOrigin[0]) + 'px,' +
-                ((d[1] * ts) - _tileOrigin[1]) + 'px) ' +
-                'scale(' + scale + ',' + scale + ')';
+                ((d[0] * ts) * _tileSize / d.tileSize - _tileOrigin[0]
+            ) + 'px,' +
+                ((d[1] * ts) * _tileSize / d.tileSize - _tileOrigin[1]
+            ) + 'px) ' +
+                'scale(' + scale * _tileSize / d.tileSize + ',' + scale * _tileSize / d.tileSize + ')';
         }
 
         function tileCenter(d) {
-            var ts = _tileSize * Math.pow(2, _zoom - d[2]);
+            var ts = d.tileSize * Math.pow(2, _zoom - d[2]);
             return [
                 ((d[0] * ts) - _tileOrigin[0] + (ts / 2)),
                 ((d[1] * ts) - _tileOrigin[1] + (ts / 2))
@@ -180,7 +201,7 @@ export function rendererTileLayer(context) {
 
 
         var image = selection.selectAll('img')
-            .data(requests, function(d) { return d[3]; });
+            .data(requests, function(d) { return d.url; });
 
         image.exit()
             .style(transformProp, imageTransform)
@@ -192,7 +213,7 @@ export function rendererTileLayer(context) {
                     if (tile.classed('tile-removing')) {
                         tile.remove();
                     }
-                }, 300);
+                }, 250);
             });
 
         image.enter()
@@ -202,7 +223,7 @@ export function rendererTileLayer(context) {
             .attr('draggable', 'false')
             .style('width', _tileSize + 'px')
             .style('height', _tileSize + 'px')
-            .attr('src', function(d) { return d[3]; })
+            .attr('src', function(d) { return d.url; })
             .on('error', error)
             .on('load', load)
           .merge(image)
@@ -214,7 +235,7 @@ export function rendererTileLayer(context) {
 
 
         var debug = selection.selectAll('.tile-label-debug')
-            .data(showDebug ? requests : [], function(d) { return d[3]; });
+            .data(showDebug ? requests : [], function(d) { return d.url; });
 
         debug.exit()
             .remove();

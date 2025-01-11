@@ -10,7 +10,6 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.es6
       }
     },
     rules: {
@@ -111,8 +110,9 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.es6,
-        ...globals.mocha,
+        ...globals.jest,
+        'before': 'readonly',
+        'after': 'readonly',
         'd3': 'readonly',
         'iD': 'readonly',
         'sinon': 'readonly',
@@ -130,7 +130,6 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.es6
       }
     }
   }
